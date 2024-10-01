@@ -11,7 +11,7 @@ public class TaskUIController : MonoBehaviour
     public Dropdown taskPriorityDropdown;
     public Dropdown projectDropdown;
     public Button addTaskButton;
-    public Button editTaskButton;
+    public Button reflectTaskButton;
     public GameObject taskListContent;
     public GameObject taskListItemPrefab;
 
@@ -20,13 +20,19 @@ public class TaskUIController : MonoBehaviour
     public Button errorCloseButton; // エラーパネルを閉じるボタン
     public Button sortPriorityButton; // 優先度順に並び替えるボタン
 
+    [Header("0. Text 1.Task  2.Delete")]
+    public string[] hierarchyName;
+
     private TaskModels selectedTask;
     private bool sortDescending = true; // ソート順のフラグ
 
     private void Start()
     {
+        isOK = true;
+        ChangeCount(taskDescriptionInput.text);
+
         addTaskButton.onClick.AddListener(OnAddTask);
-        editTaskButton.onClick.AddListener(OnEditTask);
+        reflectTaskButton.onClick.AddListener(OnEditTask);
         errorCloseButton.onClick.AddListener(OnErrorClose);
         projectDropdown.onValueChanged.AddListener(OnProjectDropdownChanged); // ドロップダウンにリスナーを追加
         sortPriorityButton.onClick.AddListener(OnSortByPriority); // 並び替えボタンにリスナーを追加
@@ -34,15 +40,28 @@ public class TaskUIController : MonoBehaviour
         DisplayTasks(); // 初期表示
     }
 
+    private void Update()
+    {
+        ChangeCount(taskDescriptionInput.text);
+    }
+
     private void OnAddTask()
     {
         string description = taskDescriptionInput.text;
         MyDateTime deadline;
+        
+        if(limit <= description.Length)
+        {
+            ShowError("タスク名が文字制限を超えています");
+            return;
+        }
+        
         if (!MyDateTime.TryParse(taskDeadlineInput.text, out deadline))
         {
             ShowError("日付の形式が無効です。YYYY/MM/DD HH:MM:SS形式で入力してください。");
             return;
         }
+
         int priority = taskPriorityDropdown.value;
         int projectId = projectDropdown.value;
 
@@ -60,11 +79,19 @@ public class TaskUIController : MonoBehaviour
 
         string newDescription = taskDescriptionInput.text;
         MyDateTime newDeadline;
+
+        if (limit <= newDescription.Length)
+        {
+            ShowError("タスク名が文字制限を超えています");
+            return;
+        }
+
         if (!MyDateTime.TryParse(taskDeadlineInput.text, out newDeadline))
         {
             ShowError("日付の形式が無効です。YYYY/MM/DD HH:MM:SS形式で入力してください。");
             return;
         }
+
         int newPriority = taskPriorityDropdown.value;
         int newProjectId = projectDropdown.value;
 
@@ -95,15 +122,15 @@ public class TaskUIController : MonoBehaviour
         {
             GameObject taskItem = Instantiate(taskListItemPrefab, taskListContent.transform);
             
-            Text nameText = taskItem.transform.Find("Frame/Text").GetComponent<Text>();
+            Text nameText = taskItem.transform.Find(hierarchyName[0]/*""*/).GetComponent<Text>();
             nameText.text = $"{task.Description} - {task.Deadline}";
 
             // タスク選択ボタンを設定
-            Button taskButton = taskItem.transform.Find("Frame/SelectButton").GetComponent<Button>();
+            Button taskButton = taskItem.transform.Find(hierarchyName[1]/*""*/).GetComponent<Button>();
             taskButton.onClick.AddListener(() => OnTaskSelected(task));
 
             // タスク削除ボタンを設定
-            Button deleteButton = taskItem.transform.Find("Frame/DeleteButton").GetComponent<Button>();
+            Button deleteButton = taskItem.transform.Find(hierarchyName[2]/*""*/).GetComponent<Button>();
             deleteButton.onClick.AddListener(() => OnDeleteTask(task));
         }
     }
@@ -158,5 +185,28 @@ public class TaskUIController : MonoBehaviour
     private void OnErrorClose()
     {
         errorPanel.SetActive(false); // エラーパネルを閉じる
+    }
+
+    [SerializeField] Text countText;
+    Color countColor = Color.white;
+    Color countLastColor = Color.red;
+    int limit = 300;
+    bool isOK = true;
+
+    public void ChangeCount(string comment)
+    {
+        int leftNum = 0;
+
+        leftNum = limit - comment.Length;
+        
+        if (leftNum < 10)
+            countText.color = countLastColor;
+        else
+            countText.color = countColor;
+
+        if (leftNum == 0)
+            isOK = false;
+
+        countText.text = leftNum.ToString();
     }
 }
