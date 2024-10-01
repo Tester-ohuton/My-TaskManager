@@ -7,10 +7,7 @@ public class ProjectUIController : MonoBehaviour
     public GameObject projectCreatePanel; // プロジェクト作成パネル
     public GameObject projectEditPanel; // プロジェクト編集パネル
     public InputField projectNameInput1;
-    public InputField projectNameInput2;
     public Button addProjectButton;
-    public Button editProjectButton;
-    public Button deleteProjectButton; // プロジェクト削除ボタン
     public GameObject projectListContent;
     public GameObject projectListItemPrefab;
 
@@ -18,15 +15,23 @@ public class ProjectUIController : MonoBehaviour
     public Text errorText; // エラーメッセージを表示するテキスト
     public Button errorCloseButton; // エラーパネルを閉じるボタン
 
+    [Header("0. Text 1.Open  2.Delete")]
+    public string[] hierarchyName;
+
     private ProjectModels selectedProject;
 
     private void Start()
     {
+        ChangeCount(projectNameInput1.text);
+
         addProjectButton.onClick.AddListener(OnAddProject);
-        editProjectButton.onClick.AddListener(OnEditProject);
-        deleteProjectButton.onClick.AddListener(OnDeleteProject); // プロジェクト削除ボタンのリスナー
         errorCloseButton.onClick.AddListener(OnErrorClose);
         DisplayProjects(); // ロードしたデータをUIに反映
+    }
+
+    private void Update()
+    {
+        ChangeCount(projectNameInput1.text);
     }
 
     private void ShowProjectCreatePanel()
@@ -53,6 +58,13 @@ public class ProjectUIController : MonoBehaviour
         if (ProjectManager.Instance.ProjectNameExists(name))
         {
             ShowError("このプロジェクト名は既に存在します。別の名前を入力してください。");
+            projectNameInput1.text = string.Empty; // プロジェクト名入力フィールドをクリア
+            return;
+        }
+
+        if (limit <= name.Length)
+        {
+            ShowError("プロジェクト名が文字制限を超えています");
             return;
         }
 
@@ -63,22 +75,29 @@ public class ProjectUIController : MonoBehaviour
 
     private void OnEditProject()
     {
-        string newName = projectNameInput2.text;
+        string newName = projectNameInput1.text;
         if (string.IsNullOrEmpty(newName))
         {
             ShowError("プロジェクト名を入力してください。");
             return;
         }
 
-        if (ProjectManager.Instance.ProjectNameExists(newName))
-        {
-            ShowError("このプロジェクト名は既に存在します。別の名前を入力してください。");
-            return;
-        }
-
         if (selectedProject == null)
         {
             ShowError("編集対象のプロジェクトが選択されていません。");
+            return;
+        }
+
+        if (ProjectManager.Instance.ProjectNameExists(newName))
+        {
+            ShowError("このプロジェクト名は既に存在します。別の名前を入力してください。");
+            projectNameInput1.text = string.Empty; // プロジェクト名入力フィールドをクリア
+            return;
+        }
+
+        if (limit <= newName.Length)
+        {
+            ShowError("プロジェクト名が文字制限を超えています");
             return;
         }
 
@@ -96,7 +115,7 @@ public class ProjectUIController : MonoBehaviour
 
         ProjectManager.Instance.DeleteProject(selectedProject.Id);
         selectedProject = null;
-        projectNameInput2.text = string.Empty; // プロジェクト名入力フィールドをクリア
+        projectNameInput1.text = string.Empty; // プロジェクト名入力フィールドをクリア
         DisplayProjects(); // プロジェクト削除後にUIを更新
 
         if (ProjectManager.Instance.GetProjects().Count == 0)
@@ -123,15 +142,14 @@ public class ProjectUIController : MonoBehaviour
             GameObject projectItem = Instantiate(projectListItemPrefab, projectListContent.transform);
             
 
-            Text nametext = projectItem.transform.Find("Image/Text").GetComponent<Text>();
-            //nametext.text = project.Name;
-            nametext.text = string.Join("\n", projects.ConvertAll(p => p.Name));
+            Text nametext = projectItem.transform.Find(hierarchyName[0]).GetComponent<Text>();
+            nametext.text = project.Name;
 
             // Add button click listener to show tasks of this project
-            Button projectButton = projectItem.transform.Find("Frame/ProjectButton").GetComponent<Button>();
+            Button projectButton = projectItem.transform.Find(hierarchyName[1]).GetComponent<Button>();
             projectButton.onClick.AddListener(() => OnProjectSelected(project));
 
-            Button deleteButton = projectItem.transform.Find("Frame/DeleteButton").GetComponent<Button>();
+            Button deleteButton = projectItem.transform.Find(hierarchyName[2]).GetComponent<Button>();
             deleteButton.onClick.AddListener(() => Destroy(projectItem));
         }
     }
@@ -139,7 +157,7 @@ public class ProjectUIController : MonoBehaviour
     private void OnProjectSelected(ProjectModels project)
     {
         selectedProject = project;
-        projectNameInput2.text = project.Name;
+        projectNameInput1.text = project.Name;
 
         ShowProjectEditPanel();
     }
@@ -154,5 +172,26 @@ public class ProjectUIController : MonoBehaviour
     private void OnErrorClose()
     {
         errorPanel.SetActive(false); // エラーパネルを閉じる
+    }
+
+    private void GetProjects()
+    {
+        ProjectManager.Instance.GetProjects();
+    }
+
+    [SerializeField] Text countText;
+    Color countColor = Color.white;
+    Color countLastColor = Color.red;
+    int limit = 50;
+
+    public void ChangeCount(string comment)
+    {
+        int leftNum = limit - comment.Length;
+        if (leftNum < 10)
+            countText.color = countLastColor;
+        else
+            countText.color = countColor;
+
+        countText.text = leftNum.ToString();
     }
 }
